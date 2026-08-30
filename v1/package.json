@@ -7,9 +7,12 @@
     "node": ">=22.22.2"
   },
   "scripts": {
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
     "test:foundation": "node --experimental-strip-types --test tests/foundation.test.ts",
+    "test:workspace": "node --experimental-strip-types --test tests/workspace.test.ts tests/api.test.ts",
     "demo:foundation": "node --experimental-strip-types scripts/demo.ts",
     "bootstrap:upstream": "node scripts/bootstrap-upstream.mjs",
+    "dev": "node --experimental-strip-types apps/api/src/server.ts",
     "dev:api": "node --experimental-strip-types apps/api/src/server.ts"
   }
 }

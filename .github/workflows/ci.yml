@@ -2,8 +2,9 @@ name: CI
 on:
   push:
   pull_request:
+
 jobs:
-  test:
+  v0-python:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,3 +16,14 @@ jobs:
         env:
           WECHAT_MOCK: 'true'
           DATABASE_URL: 'sqlite:///./test-ci.db'
+
+  v1-workspace:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.2'
+      - name: Run V1 domain and workspace tests
+        working-directory: v1
+        run: node --experimental-strip-types --test tests/*.test.ts
