@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}新建投稿 · WeChatFlow{% endblock %}
+{% block content %}
+<header class="page-header compact"><div><p class="eyebrow">ARTICLE WORKSPACE</p><h1>{{ '编辑稿件' if article else '新建投稿' }}</h1><p>导入 Markdown，检查内容，再创建公众号草稿。</p></div></header>
+<div class="workspace" data-article-id="{{ article.id if article else '' }}">
+  <section class="panel editor-panel">
+    <div class="form-row two"><label>标题<input id="title" value="{{ article.title if article else '' }}" placeholder="输入公众号文章标题" /></label><label>作者<input id="author" value="{{ article.author if article else '' }}" placeholder="作者（可选）" /></label></div>
+    <label>摘要<textarea id="digest" rows="2" placeholder="文章摘要（可选）">{{ article.digest if article else '' }}</textarea></label>
+    <div class="toolbar"><label class="file-btn">导入 Markdown<input id="md-file" type="file" accept=".md,.markdown,text/markdown" hidden /></label><label class="file-btn">上传封面<input id="cover-file" type="file" accept="image/*" hidden /></label><span id="cover-status">{{ article.cover_path if article and article.cover_path else '尚未上传封面' }}</span></div>
+    <input type="hidden" id="cover-path" value="{{ article.cover_path if article and article.cover_path else '' }}" />
+    <label>Markdown 正文<textarea id="markdown" class="markdown-editor" placeholder="# 标题\n\n在这里写正文……">{{ article.markdown_content if article else '' }}</textarea></label>
+    <div id="checks" class="checks hidden"></div>
+    <div class="action-bar"><button class="btn" id="save-btn">保存</button><button class="btn" id="validate-btn">发布检查</button><button class="btn" id="dryrun-btn">Dry-run</button><button class="btn primary" id="publish-btn">提交草稿箱</button></div>
+  </section>
+  <section class="preview-shell">
+    <div class="phone-top"><span></span><strong>公众号预览</strong><button id="preview-btn" class="text-btn">刷新预览</button></div>
+    <div id="preview" class="article-preview"><div class="preview-placeholder"><strong>实时预览</strong><p>保存后点击“刷新预览”。</p></div></div>
+  </section>
+</div>
+<div id="toast" class="toast hidden"></div>
+{% endblock %}
+{% block scripts %}<script src="/static/js/editor.js"></script>{% endblock %}
