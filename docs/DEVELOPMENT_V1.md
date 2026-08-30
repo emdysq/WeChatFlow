@@ -692,34 +692,31 @@ interface RendererAdapter {
 interface LlmProvider {
   id: string
   listModels(): Promise<ModelInfo[]>
-  testConnection(): Promise<ProviderHealth>
+  test(): Promise<ProviderCheck>
   generate(request: LlmRequest): Promise<LlmResponse>
   stream?(request: LlmRequest): AsyncIterable<LlmChunk>
 }
 ```
 
-P0 Provider：
+Provider：
+
+```text
+DeepSeek
+OpenAI
+Qwen
+Gemini
+Doubao
+OpenRouter
+SiliconFlow
+Custom OpenAI-compatible
+```
+
+V1 第一批至少完成：
 
 - DeepSeek
-- OpenAI-compatible Custom
+- Custom OpenAI-compatible
 
-P1：
-
-- Qwen
-- Gemini
-- Doubao
-- OpenRouter
-- SiliconFlow
-
-原因：DeepSeek 本身采用 OpenAI 兼容 API，可以先把通用 OpenAI-compatible Client 做好，再增加 preset。
-
-API Key 必须：
-
-- 只存在本机 Secret Store / 环境变量 /受保护配置。
-- 不写文章。
-- 不写 Git。
-- 不进入 Agent prompt 日志。
-- UI 默认不回显完整 Key。
+不要把具体 Provider 写入 Planner/Writer。
 
 ---
 
@@ -727,112 +724,109 @@ API Key 必须：
 
 ### 13.1 Planner
 
-输入：
+输入：用户一句话、资料、Brand Profile。
 
-- 用户一句话
-- 用户资料
-- Brand Profile
-- 可选历史文章
+输出严格 JSON：
 
-输出严格 JSON Schema：
-
-```text
-objective
-audience
-thesis
-articleType
-tone
-targetLength
-sections
-titleDirections
-imageSlots
-risks
+```json
+{
+  "objective": "解释 AI Agent 对 SaaS 产品交互的影响",
+  "audience": ["产品经理", "AI 从业者"],
+  "thesis": "GUI 不会消失，但将不再是唯一入口",
+  "targetLength": 3200,
+  "sections": [],
+  "imageSlots": [],
+  "riskNotes": []
+}
 ```
+
+Planner 不直接写全文。
 
 ### 13.2 Writer
 
-只能消费 ArticlePlan 与用户提供资料。
+输入 ArticlePlan。
 
-输出：
+职责：
 
-- Markdown
-- 语义组件
-- ImageSlot anchor
-
-Writer 不允许：
-
-- 上传微信
-- 自己决定发布
-- 修改 Provider 配置
+- 完成 Markdown 初稿。
+- 遵循 Brand Profile。
+- 不凭空删除 ImageSlot。
+- 不输出自由 CSS。
+- 不调用 Publisher。
 
 ### 13.3 Image Director
 
 职责：
 
-- 判断哪些位置真的需要图。
-- 给出图片类型。
-- 生成 Prompt。
-- 选择合理比例。
-- 生成 alt/caption。
+- 判断哪里真的需要图。
+- 选择视觉类型：概念图、流程图、数据图、截图、信息图。
+- 输出 Prompt、比例、ALT、说明。
 
 ### 13.4 Editor
 
-负责定向改稿，不重新生成整篇。
+负责定向改写，而不是每次整篇生成。
 
 ### 13.5 Reviewer
 
-只输出问题、评分和可修建议。
+负责质量评分和 issue 列表，不直接静默修改正文。
 
 ### 13.6 Revision Agent
 
-接收 Reviewer issue，只修 `autoFixable=true` 的问题，默认最多一轮。
+根据 Reviewer 或用户指令形成 Patch Proposal。
 
 ### 13.7 Publisher
 
-只处理已经冻结的 RenderSnapshot。
+Publisher 不是 LLM Agent，而是确定性服务。
 
 ---
 
 ## 14. AI 改稿 Diff 协议
 
-Agent 不直接覆盖当前稿。
+AI 修改不能直接覆盖当前 Revision。
 
-返回：
+模型输出：
 
 ```ts
 RevisionProposal {
+  id
+  documentId
   baseRevisionId
   instruction
-  changes[]
-  proposedMarkdown
+  operations: [
+    {
+      type: REPLACE_RANGE
+      startAnchor
+      endAnchor
+      oldTextHash
+      newText
+      explanation
+    }
+  ]
 }
 ```
 
-UI：
+Web 展示：
 
-```text
-原文             建议
-----             ----
-旧句子           新句子
-
-[接受全部]
-[逐项接受]
-[拒绝]
-[继续让 AI 修改]
+```diff
+- 随着人工智能技术的快速发展，我们正在迎来一个全新的时代。
++ 过去我们使用软件，首先得学会它的界面；Agent 出现之后，这件事开始变化。
 ```
 
-接受后才创建新的 Revision。
-
-后续冲突检测：如果 proposal.baseRevisionId 不再等于当前 revision，则标记：
+用户：
 
 ```text
-REVISION_CONFLICT
+接受
+拒绝
+继续修改
 ```
 
-要求用户选择：
+Accept 时必须检查：
 
-- 基于新版本重新生成
-- 手工合并
+```text
+proposal.baseRevisionId == currentRevision.id
+```
+
+否则返回 Conflict，要求重新生成/重放，不能盲目套用旧 Patch。
 
 ---
 
@@ -841,57 +835,51 @@ REVISION_CONFLICT
 ### 15.1 图片来源
 
 ```text
-UPLOAD
-AI_PROVIDER
-AGENT_HOST
-REMOTE_URL
-SCREENSHOT
+用户上传
+远程 URL
+AI 图片 Provider
+宿主 Agent ImageGen
+截图/图表
 ```
 
 ### 15.2 文本模型与图片模型分离
 
-LLM 负责“这里需要什么图”。
+```text
+LLM
+→ 决定“需要什么图”
+→ ImagePlan
 
-Image Provider 负责“生成图”。
-
-```ts
-interface ImageProvider {
-  generate(request: ImageRequest): Promise<ImageAsset>
-}
+ImageProvider
+→ 负责“实际生成图”
 ```
+
+DeepSeek 不需要具有生图能力也可以担任 Image Director。
 
 ### 15.3 V1 图片失败策略
 
-图片生成失败不能导致文章丢失。
+图片生成失败不能毁掉正文。
 
 ```text
-GENERATING → FAILED
+ImageSlot = FAILED
+文章 = 可继续编辑
+发布 readiness = blocker/warning（取决于 slot required）
 ```
-
-用户可以：
-
-- 重试
-- 换 Provider
-- 上传本地图
-- 跳过
 
 ### 15.4 微信前置处理
 
-Snapshot 创建前可以使用本地图片。
-
-真正同步微信前：
+发布前所有图片必须解析成确定 Asset：
 
 ```text
-Asset Resolver
-   ↓
-所有正文图片上传微信
-   ↓
-wechatUrl
-   ↓
-Final WeChat HTML
+Markdown image
+→ Asset Resolver
+→ 本地/远程读取
+→ 安全校验
+→ 微信上传
+→ wechatUrl
+→ Final Snapshot image rewrite
 ```
 
-注意：Web Preview 的 Snapshot 与 WeChat 最终 Snapshot 可以是同一个逻辑 snapshot family，但微信上传会产生 resolved asset map。实现时应避免无意义修改正文 Revision。
+注意后续实现顺序：为严格满足 Snapshot 单一来源原则，可以把“平台中立 Snapshot”和“微信 Finalization”拆成两个不可变 artifact，但绝不能在发布时偷偷重新渲染正文。
 
 ---
 
@@ -903,115 +891,127 @@ BrandProfile {
   name
   accountPositioning
   audience
-  topics[]
+  preferredTopics
   tone
-  preferredLength
   titleStyle
-  bannedPhrases[]
-  preferredStructures[]
-  imageStyle
-  defaultRenderProfile
-  authorName
+  lengthRange
+  bannedPhrases
+  defaultRenderProfileId
+  defaultImageStyle
+  signature
 }
 ```
 
-示例禁止词：
+示例 banned phrases：
 
 ```text
-随着时代发展
+随着时代的发展
 在当今数字化时代
 让我们一起
 值得注意的是
-不难发现
-综上所述（高频时）
+总而言之（频繁使用）
 ```
 
-Planner / Writer / Reviewer 均读取 Brand Profile。
+Brand Profile 被：
+
+```text
+Planner
+Writer
+Image Director
+Reviewer
+Layout Advisor
+```
+
+共同读取。
 
 ---
 
 ## 17. Review 与质量门禁
 
-P0 Review 维度：
+Review 输出：
 
-- 主线清晰度
-- 结构
-- 可读性
-- 重复
-- AI 套话
-- 标题质量
-- 摘要质量
-- 图片相关性
-- 微信 HTML 合规
-- 事实风险
+```text
+主线清晰度
+结构
+可读性
+AI 套话
+重复
+标题质量
+事实风险
+图片相关性
+公众号排版
+```
 
-输出：
+示例：
 
-```ts
-ReviewIssue {
-  id
-  severity: INFO | WARNING | BLOCKER
-  category
-  location
-  message
-  suggestion
-  autoFixable
+```json
+{
+  "overallScore": 86,
+  "recommendation": "REVISE",
+  "issues": [
+    {
+      "severity": "medium",
+      "type": "AI_CLICHE",
+      "location": "section-2:p3",
+      "message": "存在模板化 AI 总结句",
+      "autoFixable": true
+    }
+  ]
 }
 ```
 
-默认门禁：
+只有 `autoFixable` issue 可以进入自动定向修订。
 
-```text
-BLOCKER 存在 → 禁止微信同步
-未处理 ImageSlot 且 marked required → 禁止微信同步
-HTML 检查失败 → 禁止微信同步
-```
-
-用户可以对非高风险问题显式忽略；忽略操作也要记录。
+默认不无限重写，最多 1~2 轮。
 
 ---
 
 ## 18. 微信账号模型
 
-现有 doocs 账号信息更多偏前端帐号资料。WeChatFlow 需要拆成：
-
 ```ts
 WechatAccount {
   id
   name
-  appIdMasked
+  appId
   secretRef
-  mode: LIVE | MOCK
-  defaultBrandProfileId?
-  lastConnectionCheck
+  enabled
+  connectionMode: DIRECT | RELAY
+  relayUrl?
+  createdAt
 }
 ```
 
-真实 Secret 不进入 SQLite 明文字段；`secretRef` 指向系统密钥或环境配置。
+`secretRef` 指向环境/系统 Secret Store，而不是明文 Secret。
 
-V1 最初仍可单账号，但数据模型直接支持多账号。
+本地第一版可继续通过环境变量：
+
+```text
+WECHAT_APP_ID
+WECHAT_APP_SECRET
+```
+
+但前端永远只显示 masked status。
 
 ---
 
 ## 19. 微信 Publisher Adapter
 
-统一接口：
-
 ```ts
-interface PublisherAdapter {
-  inspect(snapshotId, accountId): Promise<PublishReadiness>
-  createDraft(snapshotId, accountId, approval): Promise<RemoteDraft>
-  updateDraft(remoteDraftId, snapshotId, approval): Promise<RemoteDraft>
+interface PublishAdapter {
+  check(): Promise<PublishReadiness>
+  uploadBodyImage(asset): Promise<WechatImage>
+  uploadCover(asset): Promise<WechatCover>
+  createDraft(snapshot, metadata): Promise<RemoteDraftResult>
+  updateDraft(remoteDraft, snapshot, metadata): Promise<RemoteDraftResult>
 }
 ```
 
 实现：
 
 ```text
-WeChatDirectPublisher
-WeChatRelayPublisher  (后续)
-ClipboardPublisher
-MockPublisher
+WechatDirectAdapter
+WechatRelayAdapter
+ClipboardAdapter
 ```
 
 ### 19.1 Direct 流程
@@ -1019,23 +1019,27 @@ MockPublisher
 ```text
 access_token
 → 正文图片 uploadimg
-→ 封面 material/add_material
-→ HTML 图片 URL 替换
+→ 封面 material
 → draft/add 或 draft/update
-→ 保存 RemoteDraft
 ```
 
 ### 19.2 Clipboard 流程
 
-复制的必须是与 Preview 同源的 Snapshot HTML。
-
-用户手工粘贴到微信后台时，页面明确提示：
+Clipboard 不重新渲染。
 
 ```text
-这是人工导出，不会生成 RemoteDraft media_id。
+RenderSnapshot.html
+→ ClipboardItem(text/html)
+→ 微信后台粘贴
 ```
 
-后续可允许用户标记“已手工同步”。
+复制前显示：
+
+```text
+快照 v12
+主题 Tech
+Hash 3d7a...
+```
 
 ---
 
@@ -1047,9 +1051,9 @@ access_token
 wechatflow.capabilities
 wechatflow.list_documents
 wechatflow.get_document
+wechatflow.get_revision
 wechatflow.list_themes
-wechatflow.get_sync_status
-wechatflow.review_status
+wechatflow.get_sync_state
 ```
 
 ### 20.2 安全写操作
@@ -1311,7 +1315,7 @@ Live 微信测试只能在用户本地配置 Secret 后执行。
 
 ## 26. 开发阶段
 
-### Phase 0 — Foundation / Upstream（当前进行中）
+### Phase 0 — Foundation / Upstream（已完成）
 
 目标：停止旧架构扩张，建立 V1 干净入口。
 
@@ -1324,31 +1328,34 @@ Live 微信测试只能在用户本地配置 Secret 后执行。
 - [x] Local API Foundation
 - [x] 第一批领域测试
 
-### Phase 1 — Document Workspace
+### Phase 1 — Document Workspace（已完成）
 
 目标：先解决用户当前最痛的问题。
 
-- [ ] Working Copy
-- [ ] Revision commit policy
-- [ ] Revision history UI
-- [ ] Diff UI
-- [ ] Document list
-- [ ] Auto save
-- [ ] OUTDATED/SYNCED UI
-- [ ] 恢复历史版本
+- [x] Working Copy
+- [x] Revision commit policy
+- [x] Revision history UI
+- [x] Diff UI
+- [x] Document list
+- [x] Auto save
+- [x] OUTDATED/SYNCED UI
+- [x] 恢复历史版本
+- [x] Web/Agent 乐观并发控制（Working Copy version）
+- [x] SQLite 重启恢复
+- [x] schema user_version 迁移到 v2
 
 **验收：**同步远程草稿后继续编辑不会锁稿；关闭浏览器重开不丢内容；能查看历史版本和差异。
 
-### Phase 2 — doocs Renderer Integration
+### Phase 2 — doocs Renderer Integration（进行中）
 
-- [ ] bootstrap 后安装 upstream 依赖
-- [ ] Renderer Adapter
+- [ ] bootstrap 后安装 upstream 依赖（需要在有网络的开发机执行）
+- [x] Renderer Adapter / bridge scaffold
 - [ ] Theme discovery
-- [ ] 实时 Preview
-- [ ] RenderProfile
-- [ ] Snapshot
-- [ ] Copy Rich HTML
-- [ ] golden tests
+- [x] 实时 Preview API 与 Web 接口
+- [x] RenderProfile 基础映射
+- [x] Snapshot 统一由 Renderer 生成，客户端不能注入最终 HTML
+- [x] Copy Rich HTML UI（仅真实 doocs Preview 可用）
+- [ ] renderer golden tests（等待 upstream 本地安装后固化）
 
 **验收：**编辑器右侧实时显示真实公众号 HTML；Preview/Copy/Snapshot hash 一致。
 
@@ -1472,7 +1479,7 @@ pnpm install
 
 ## 28. 当前已经完成的 V1 代码
 
-当前基础代码已经包含：
+当前代码已经进入可操作的 **Document Workspace** 阶段：
 
 ```text
 v1/upstream/doocs-md.lock.json
@@ -1480,43 +1487,77 @@ v1/scripts/bootstrap-upstream.*
 v1/packages/domain/src/types.ts
 v1/packages/storage/src/sqlite-store.ts
 v1/packages/core/src/document-service.ts
+v1/packages/core/src/diff.ts
+v1/packages/core/src/render-service.ts
+v1/packages/renderer-doocs/src/adapter.ts
+v1/packages/renderer-doocs/src/bridge.ts
 v1/apps/api/src/server.ts
+v1/apps/web/public/index.html
+v1/apps/web/public/app.js
+v1/apps/web/public/styles.css
 v1/tests/foundation.test.ts
+v1/tests/workspace.test.ts
+v1/tests/api.test.ts
 ```
 
-已经验证：
+已经验证的领域行为：
 
 ```text
-1. 创建本地稿件
-2. 产生 Revision 1
-3. 创建 RenderSnapshot
-4. 记录一个远程草稿
-5. syncState = SYNCED
-6. 继续编辑产生 Revision 2
-7. syncState = OUTDATED
+1. 创建 Document + Revision 1 + Working Copy
+2. 编辑时只更新 Working Copy，不制造无意义 Revision
+3. 600ms Web debounce 自动保存 Working Copy
+4. 30s idle 或手动“保存版本”才生成 immutable Revision
+5. Working Copy 使用 version 做乐观并发控制，防止 Web/Agent 静默互相覆盖
+6. 创建微信远程草稿后仍可继续修改
+7. Working Copy 一旦有修改，syncState 立即从 SYNCED 变为 OUTDATED
+8. 历史恢复不会删除后续版本，而是创建新的 restore Revision
+9. Revision ↔ Working Copy / Revision ↔ Revision 可做行级 Diff
+10. SQLite 重启后未 checkpoint 的 Working Copy 仍然存在
+11. Dashboard 可以列出稿件、本地版本、微信版本和同步状态
+12. Editor 已有版本历史、Diff、恢复、自动保存、Checkpoint、Preview 面板
 ```
 
-这意味着 V1 第一条核心产品不变量已经进入代码，而不再只是设计：
+当前自动测试基线：
 
-> **创建微信草稿永远不会锁死本地文档。**
+```text
+14 passed
+```
+
+这意味着 V1 第一条核心产品不变量已经完整进入代码和 UI，而不再只是设计：
+
+> **创建微信草稿永远不会锁死本地文档；自动保存也不会污染不可变版本历史。**
+
+Phase 2 也已经建立 doocs renderer bridge。服务器会明确返回 renderer readiness；如果 upstream 尚未 bootstrap 或依赖未安装，Web 只显示带警告的基础 Markdown 回退预览，并禁止把它当作正式 RenderSnapshot。真实 doocs renderer 可用后，Preview、富文本复制和 RenderSnapshot 都走同一个 adapter。
 
 ---
 
 ## 29. 当前 Foundation 数据库 Schema
 
-已经落地：
+Schema 已升级到 `PRAGMA user_version = 2`，并支持从 Foundation 数据库自动 backfill Working Copy：
 
 ```sql
 CREATE TABLE documents (...);
 CREATE TABLE revisions (...);
+CREATE TABLE document_working_copies (...);
 CREATE TABLE render_snapshots (...);
 CREATE TABLE remote_drafts (...);
 ```
 
-下阶段迁移增加：
+`document_working_copies` 保存：
 
 ```text
-document_working_copies
+document_id
+base_revision_id
+title
+markdown
+content_hash
+version          # 乐观并发版本号
+updated_at
+```
+
+后续阶段继续增加：
+
+```text
 article_plans
 image_slots
 assets
@@ -1528,21 +1569,22 @@ sync_attempts
 approval_tokens
 ```
 
-数据库迁移不能继续长期靠 `CREATE TABLE IF NOT EXISTS`；进入 Phase 2 前引入 schema version / migrations。
+从现在开始所有 schema 变化必须递增 `user_version` 并提供迁移逻辑，不允许只依赖最新建表 SQL。
 
 ---
 
 ## 30. 当前技术债务（明确记录）
 
-Foundation 有意保持轻量，以下不是最终实现：
+当前剩余技术债务：
 
-1. 当前使用 Node 22 `node:sqlite`；Node 22 中仍可能带实验警告。Phase 1 结束前评估继续使用、升级 Node baseline 或切换成熟 SQLite driver。
-2. 当前 Local API 使用 Node 原生 `http`，只是 Domain 验证入口；正式 API 可迁移到 Hono/Fastify 等轻量框架，但不能因此改变 Domain。
-3. 当前 `remote-drafts` API 只记录领域状态，不调用微信。
-4. Renderer Adapter 尚未真正执行 doocs/md，因为需要用户本地 bootstrap upstream 并安装 pnpm 依赖。
-5. Working Copy 尚未实现，所以现在每次显式 save 都可能创建 Revision；Web 接入时必须修正。
-6. 未加入 Auth；V1 本地单用户可以不做复杂 RBAC，但如果服务绑定非 localhost，必须增加认证。
-7. 尚未实现 migrations。
+1. 当前使用 Node 22 `node:sqlite`；部分 Node 22 版本仍显示实验警告。V1 本地单用户阶段继续使用，桌面打包前再评估驱动切换。
+2. Local API 仍使用 Node 原生 `http`；Phase 1 已证明足够稳定，后续是否迁移 Hono/Fastify 以真实需求为准，不能为换框架而换框架。
+3. `remote-drafts` POST 仍只是 Foundation bookkeeping，不调用真实微信；Phase 7 才加入 prepare/approval + 微信副作用。
+4. doocs Renderer Adapter/bridge 已写好，但当前执行环境无外网，无法 clone/install 上游依赖；需要在用户 Windows 开发机完成 bootstrap + `pnpm install` 后做真实 golden test。
+5. 当前 Web 是 V1 Workspace 的轻量原生实现，目的是先冻结 Domain 行为；Phase 2/3 接入 doocs 编辑器能力后再决定是继续嵌入还是迁移 Vue 页面。
+6. 未加入 Auth；服务仍只绑定 `127.0.0.1`。未来若允许 LAN/公网访问，必须先加认证。
+7. `beforeunload` 的 sendBeacon 仅做 best-effort；真正可靠性来自 600ms 持久化 Working Copy，而不是关闭页面瞬间的请求。
+8. Renderer Theme discovery 尚未接入；当前 Web 只暴露 doocs 基础 `default/grace/simple`。
 
 ---
 
