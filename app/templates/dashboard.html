@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}总览 · WeChatFlow{% endblock %}
+{% block content %}
+<header class="page-header"><div><p class="eyebrow">PUBLISHING CENTER</p><h1>内容发布总览</h1><p>跟踪稿件从检查、排版到公众号草稿创建的完整状态。</p></div><a class="btn primary" href="/articles/new">+ 新建投稿</a></header>
+<section class="metric-grid">
+  <article class="metric-card"><span>累计任务</span><strong>{{ total }}</strong><small>全部 dry-run 与正式任务</small></article>
+  <article class="metric-card"><span>成功</span><strong>{{ success }}</strong><small>已通过工作流</small></article>
+  <article class="metric-card"><span>失败</span><strong>{{ failed }}</strong><small>需要人工处理</small></article>
+</section>
+<section class="panel">
+  <div class="panel-head"><div><h2>最近任务</h2><p>点击任务可查看阶段日志与错误定位。</p></div></div>
+  {% if jobs %}
+  <div class="table-wrap"><table><thead><tr><th>任务</th><th>文章</th><th>模式</th><th>状态</th><th>当前阶段</th></tr></thead><tbody>
+    {% for job in jobs %}<tr><td><a href="/jobs/{{ job.id }}">{{ job.id }}</a></td><td>{{ job.article.title or '未命名文章' }}</td><td>{{ 'Dry-run' if job.dry_run else 'Draft' }}</td><td><span class="badge {{ job.status|lower }}">{{ job.status }}</span></td><td>{{ job.current_stage }}</td></tr>{% endfor %}
+  </tbody></table></div>
+  {% else %}<div class="empty"><h3>还没有发布任务</h3><p>创建第一篇稿件，先跑一次 Dry-run。</p><a class="btn" href="/articles/new">开始创建</a></div>{% endif %}
+</section>
+{% endblock %}
