@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}账号设置 · WeChatFlow{% endblock %}
+{% block content %}
+<header class="page-header compact"><div><p class="eyebrow">WECHAT ACCOUNT</p><h1>公众号连接设置</h1><p>真实凭据只通过环境变量读取，不写入仓库和页面表单。</p></div></header>
+<section class="panel settings-card">
+  <div class="setting-row"><div><strong>运行模式</strong><p>Mock 模式可完整演示工作流；Live 模式会调用微信接口。</p></div><span class="badge {{ 'warning' if settings.wechat_mock else 'success' }}">{{ 'MOCK' if settings.wechat_mock else 'LIVE' }}</span></div>
+  <div class="setting-row"><div><strong>AppID</strong><p>{{ masked_appid }}</p></div></div>
+  <div class="setting-row"><div><strong>AppSecret</strong><p>仅通过 WECHAT_APP_SECRET 注入，界面不回显。</p></div></div>
+  <div class="setting-row"><div><strong>API Base URL</strong><p>{{ settings.wechat_api_base_url }}</p></div></div>
+  <button class="btn primary" id="test-account">测试连接</button><div id="account-result" class="result-box hidden"></div>
+</section>
+{% endblock %}
+{% block scripts %}<script>document.getElementById('test-account').onclick=async()=>{const el=document.getElementById('account-result');el.classList.remove('hidden');el.textContent='检查中…';const r=await fetch('/api/accounts/test',{method:'POST'});const d=await r.json();el.textContent=(d.ok?'✓ ':'✕ ')+d.message;el.className='result-box '+(d.ok?'ok':'error');};</script>{% endblock %}
