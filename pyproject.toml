@@ -1,0 +1,10 @@
+[project]
+name = "wechatflow"
+version = "0.1.0"
+description = "WeChat Official Account publishing workflow workbench"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"
