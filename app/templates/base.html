@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}WeChatFlow{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/app.css" />
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark">W</span><div><strong>WeChatFlow</strong><small>内容发布工作台</small></div></div>
+    <nav>
+      <a href="/" class="nav-link">总览</a>
+      <a href="/articles/new" class="nav-link">新建投稿</a>
+      <a href="/settings" class="nav-link">账号设置</a>
+      <a href="/docs" class="nav-link">API 文档</a>
+    </nav>
+    <div class="sidebar-foot">
+      <span class="status-dot {{ 'mock' if settings.wechat_mock else 'live' }}"></span>
+      {{ 'Mock 演示模式' if settings.wechat_mock else 'Live 微信模式' }}
+    </div>
+  </aside>
+  <main class="main">
+    {% block content %}{% endblock %}
+  </main>
+  <script src="/static/js/app.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
