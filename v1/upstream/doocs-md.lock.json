@@ -1,0 +1,7 @@
+{
+  "repository": "https://github.com/doocs/md.git",
+  "commit": "7622b816dbe8019ca2c8fc3d90c33a4aa8589836",
+  "license": "WTFPL",
+  "purpose": "WeChat-compatible Markdown rendering/editor upstream",
+  "updatedAt": "2026-08-30"
+}

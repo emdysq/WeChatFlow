@@ -1,0 +1,15 @@
+{
+  "name": "wechatflow-v1",
+  "private": true,
+  "version": "1.0.0-alpha.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.22.2"
+  },
+  "scripts": {
+    "test:foundation": "node --experimental-strip-types --test tests/foundation.test.ts",
+    "demo:foundation": "node --experimental-strip-types scripts/demo.ts",
+    "bootstrap:upstream": "node scripts/bootstrap-upstream.mjs",
+    "dev:api": "node --experimental-strip-types apps/api/src/server.ts"
+  }
+}
