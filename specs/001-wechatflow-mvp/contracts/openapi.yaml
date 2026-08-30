@@ -1,0 +1,49 @@
+openapi: 3.0.3
+info:
+  title: WeChatFlow API
+  version: 0.1.0
+paths:
+  /api/articles:
+    post:
+      summary: Create an article
+      responses:
+        '200': {description: Article created}
+  /api/articles/{article_id}:
+    get:
+      summary: Get an article
+      responses:
+        '200': {description: Article}
+    put:
+      summary: Update an article
+      responses:
+        '200': {description: Article updated}
+  /api/articles/{article_id}/validate:
+    post:
+      summary: Run publishing preflight checks
+      responses:
+        '200': {description: Validation result}
+  /api/articles/{article_id}/preview:
+    post:
+      summary: Render article HTML preview
+      responses:
+        '200': {description: HTML preview}
+  /api/articles/{article_id}/publish:
+    post:
+      summary: Run dry-run or create a WeChat draft
+      responses:
+        '200': {description: Publish job result}
+  /api/jobs/{job_id}:
+    get:
+      summary: Get publish job and logs
+      responses:
+        '200': {description: Publish job}
+  /api/assets/upload:
+    post:
+      summary: Upload an image asset
+      responses:
+        '200': {description: Uploaded path}
+  /api/accounts/test:
+    post:
+      summary: Test mock/live WeChat account connectivity
+      responses:
+        '200': {description: Connection result}
