@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from itertools import count
+from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -14,12 +14,9 @@ from app.services.article_service import ArticleService
 from app.services.asset_service import AssetService
 
 
-_seq = count(1)
-
-
 def make_job_id() -> str:
     now = datetime.now(timezone.utc)
-    return f"WF-{now.strftime('%Y%m%d')}-{next(_seq):04d}"
+    return f"WF-{now.strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:6].upper()}"
 
 
 class PublishService:
